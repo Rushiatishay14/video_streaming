@@ -1,0 +1,153 @@
+<!-- myapp/templates/welcome_email.html -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #007bff;
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+        }
+        .header img {
+            max-width: 100px;
+            border-radius: 50%;
+        }
+        .header h1 {
+            margin: 10px 0 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 20px;
+        }
+        .hero {
+            background-size: cover;
+            color: #ffffff;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .hero h2 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .hero p {
+            margin: 10px 0 0;
+            font-size: 18px;
+        }
+        .features, .next-steps {
+            margin: 20px 0;
+        }
+        .features h3, .next-steps h3 {
+            font-size: 22px;
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+        .features ul, .next-steps ul {
+            list-style: none;
+            padding: 0;
+        }
+        .features li, .next-steps li {
+            padding: 10px 0;
+            border-bottom: 1px solid #f4f4f4;
+        }
+        .cta {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .cta a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .footer {
+            background-color: #f4f4f4;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666666;
+        }
+        .footer a {
+            color: #007bff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="/media/images/Nexby_Black.jpg" alt="Company Logo">
+            <h1>Welcome to Nexby AI Interview Tool</h1>
+        </div>
+        <div class="hero">
+            <h2>Let's Get Started!</h2>
+            <p>We are thrilled to have you on board!</p>
+        </div>
+        <div class="content">
+            <p>Hi <strong>{{ customer_name }}</strong>,</p>
+            <p>Welcome to Nexby AI Interview Tool! We are thrilled to have you on board and can't wait for you to explore all the powerful features our tool offers.</p>
+            <div class="features">
+                <h3>Comprehensive Features</h3>
+                <ul>
+                    <li>Customized Job Descriptions: Tailored to your company type and specific requirements.</li>
+                    <li>Interview Questions and Expected Answers: Aligned with your job expectations.</li>
+                    <li>Exam Portal: Candidates can complete their interviews and assessments online.</li>
+                    <li>Candidate Grading: Easily grade candidates based on their performance.</li>
+                </ul>
+            </div>
+            <div class="features">
+                <h3>Your Registered Information</h3>
+                <ul>
+                    <li>Username: <strong>{{ username }}</strong></li>
+                    <li>Email: <strong>{{ email }}</strong></li>
+                </ul>
+            </div>
+            <p>As a new sign-up, we are excited to offer you a complimentary creation of one job where you can conduct up to 20 interviews. This is a great opportunity to experience the full potential of Nexby AI Interview Tool.</p>
+            <div class="next-steps">
+                <h3>Next Steps</h3>
+                <ul>
+                    <li>Verify your email to activate your account.</li>
+                    <li>Complete your profile for a personalized experience.</li>
+                    <li>Start by creating a customized job description and interview questions.</li>
+                </ul>
+            </div>
+            <div class="cta">
+                <a href="{{ verify_link }}">Verify Your Email</a>
+            </div>
+            <p>If you have any questions or need assistance, our support team is here to help. Feel free to reach out to us at <a href="mailto:{{ support_email }}">{{ support_email }}</a> or call us at <strong>{{ support_phone }}</strong>.</p>
+            <p>Thank you for choosing Nexby AI Interview Tool. We look forward to supporting you in your journey with us!</p>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>
+            <strong>{{ your_name }}</strong><br>
+            <strong>{{ your_position }}</strong><br>
+            Nexby AI Interview Tool<br>
+            <strong>{{ your_contact_information }}</strong></p>
+            <p><a href="{{ company_website }}">Visit our website</a> | <a href="{{ unsubscribe_link }}">Unsubscribe</a></p>
+        </div>
+    </div>
+</body>
+</html>

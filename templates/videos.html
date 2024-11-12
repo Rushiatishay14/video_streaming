@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Room</title>
+<style>
+    /* Reset default margin and padding for the body */
+    /* Reset default margin and padding for the body */
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f5f5f5;
+    }
+
+    /* Container styles */
+    .container {
+        width: 100%;
+        max-width: 600px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 20px 0;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    /* Video Frame styling */
+    #localVideoContainer, #remoteVideoContainer {
+        position: sticky; /* or fixed */
+        top: 20px; /* Adjust as needed */
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        margin: 10px 0;
+        padding: 0;
+        z-index: 10; /* Ensure it stays on top */
+    }
+
+    #localVideo, #remoteVideo {
+        width: 100%;
+        max-width: 400px; /* Adjust as needed */
+        display: block;
+        margin: 10px 0;
+        padding: 0;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Question container styling */
+    .question-container {
+        width: 100%;
+        margin: 20px 0;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Textarea styling for full-width and no extra spacing */
+    #answerText {
+        width: 100%;
+        padding: 10px;
+        font-size: 1em;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+        margin: 10px 0;
+        height: 100px;
+    }
+
+    /* Button styling */
+    button {
+        padding: 10px 20px;
+        font-size: 1em;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+        margin: 5px;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    /* Confirmation container styling */
+    .confirmation-container {
+        width: 100%;
+        margin: 20px 0;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Notification popup styling */
+    #notificationPopup {
+        display: none;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        z-index: 1000;
+    }
+
+    #notificationMessage {
+        margin: 0;
+        padding: 0;
+        font-size: 1em;
+    }
+
+    #closeNotification {
+        margin-top: 10px;
+        background-color: #dc3545;
+    }
+
+    #closeNotification:hover {
+        background-color: #c82333;
+    }
+
+    /* Remove all spacing above and below each section */
+    #localVideoContainer, #remoteVideoContainer, #questionContainer, #confirmationContainer {
+        margin: 0;
+        padding: 0;
+    }
+
+</style>
+</head>
+<body>
+    <h1>Room: candidate_answers_videos</h1>
+    <div class="container">
+        <div id="localVideoContainer">
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div id="remoteVideoContainer">
+            <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+        <div id="questionContainer" style="display:none;" class="question-container">
+            <p id="questionText"></p>
+            <textarea id="answerText" placeholder="Type your answer here..." readonly></textarea>
+            <button id="clearButton">Clear</button>
+            <button id="nextButton">Next</button>
+            <button id="finishButton" style="display:none;">Finish</button>
+        </div>
+        <div id="confirmationContainer" style="display:none;" class="confirmation-container">
+            <h2>Please confirm your answers:</h2>
+            <ul id="confirmationList"></ul>
+            <button id="confirmButton">Confirm</button>
+            <button id="editButton">Edit</button>
+        </div>
+    </div>
+    <div id="notificationPopup">
+        <p id="notificationMessage"></p>
+        <button id="closeNotification">Close</button>
+    </div>
+    <script>
+        const roomName = "candidate_answers_videos"; // Replace with dynamic room name if needed
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const webSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/interview/' + roomName + '/'
+        );
+
+        let peerConnection;
+        let screenStream;
+        let cameraStream;
+        let currentQuestionIndex = 0;
+        const questions = [
+            "What is your name?",
+            "What is your experience?",
+            "Why do you want this job?"
+            // Add more questions as needed
+        ];
+        const answers = {};
+
+        const questionText = document.getElementById('questionText');
+        const answerText = document.getElementById('answerText');
+        const nextButton = document.getElementById('nextButton');
+        const finishButton = document.getElementById('finishButton');
+        const clearButton = document.getElementById('clearButton');
+        const questionContainer = document.getElementById('questionContainer');
+        const confirmationContainer = document.getElementById('confirmationContainer');
+        const confirmationList = document.getElementById('confirmationList');
+        const confirmButton = document.getElementById('confirmButton');
+        const editButton = document.getElementById('editButton');
+
+        let recognition;
+        let finalTranscript = '';
+
+        let cameraRecorder;
+        let screenRecorder;
+        let recordedCameraChunks = [];
+        let recordedScreenChunks = [];
+
+        let faceDetectionIntervalId; // Global variable to keep track of the interval ID
+
+        // Handle incoming WebSocket messages
+        webSocket.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.action === 'start_screen_share') {
+                await startScreenShare();
+                webSocket.send(JSON.stringify({ 'screen_share_confirmed': true }));
+            } else if (data.action === 'start_camera') {
+                await startCameraStream();
+            } else if (data.sdp || data.candidate) {
+                handleSignalingData(data);
+            } else if (data.action === 'notification') {
+                showNotification(data.message);
+            }
+        };
+
+        async function startScreenShare() {
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                screenStream.getTracks().forEach(track => peerConnection.addTrack(track, screenStream));
+
+                // Add event listener to detect when screen sharing stops
+                screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    endCall();
+                });
+
+                // Start recording the screen stream
+                startScreenRecording();
+            } catch (error) {
+                console.error("Error starting screen sharing:", error);
+            }
+        }
+
+        async function startCameraStream() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                cameraStream.getTracks().forEach(track => peerConnection.addTrack(track, cameraStream));
+                localVideo.srcObject = cameraStream;
+
+                // Initialize speech recognition after camera is on
+                initSpeechRecognition();
+
+                // Show the first question
+                showQuestion();
+                questionContainer.style.display = 'block';
+
+                // Start recording the camera stream
+                startCameraRecording();
+
+                // Start face detection only if the video stream is active
+                if (cameraStream && cameraStream.getVideoTracks().length > 0) {
+                    startFaceDetection();
+                }
+            } catch (error) {
+                console.error("Error starting camera:", error);
+                alert("Could not access the camera. Please check your permissions.");
+            }
+        }
+
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    webSocket.send(JSON.stringify({
+                        'candidate': event.candidate
+                    }));
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+        }
+
+        function showQuestion() {
+            if (currentQuestionIndex < questions.length) {
+                questionText.innerText = questions[currentQuestionIndex];
+                answerText.value = '';
+                nextButton.style.display = 'inline';
+                finishButton.style.display = 'none';
+                clearButton.style.display = 'inline';
+
+                finalTranscript = '';
+
+                // Stop recognition temporarily
+                recognition.stop();
+
+                // Fetch and play TTS audio for the question
+                fetch('/index/get_question_audio/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question_index: currentQuestionIndex })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch the audio');
+                    return response.blob();
+                })
+                .then(blob => {
+                    const audioUrl = URL.createObjectURL(blob);
+                    const audio = new Audio(audioUrl);
+                    audio.play();
+
+                    // Wait for the audio to finish, then restart recognition with a slight delay
+                    audio.onended = () => {
+                        setTimeout(() => recognition.start(), 500);
+                    };
+                })
+                .catch(error => console.error('Error playing TTS audio:', error));
+            } else {
+                nextButton.style.display = 'none';
+                finishButton.style.display = 'inline';
+                clearButton.style.display = 'none';
+            }
+        }
+        nextButton.addEventListener('click', () => {
+            // Store the answer for the current question
+            answers[questions[currentQuestionIndex]] = answerText.value;
+
+            currentQuestionIndex++;
+
+            // Ensure we are not exceeding the number of questions
+            if (currentQuestionIndex < questions.length) {
+                // Play the TTS audio for the next question
+                showQuestion();
+            } else {
+                nextButton.style.display = 'none';
+                finishButton.style.display = 'inline';
+                clearButton.style.display = 'none';
+            }
+        });
+
+        clearButton.addEventListener('click', () => {
+            // Clear the text area for the current question
+            answerText.value = '';
+
+            // Reset finalTranscript and restart recognition
+            finalTranscript = '';
+            recognition.stop();
+            recognition.start();
+            console.log(`Cleared and restarted recognition for question: ${questions[currentQuestionIndex]}`);
+        });
+
+        finishButton.addEventListener('click', () => {
+            // Stop speech recognition when finishing the interview
+            recognition.stop();
+            console.log(`Stopped recognition for question: ${questions[currentQuestionIndex]}`);
+
+            // Store the answer for the current question
+            answers[questions[currentQuestionIndex]] = answerText.value;
+
+            // Display all questions and answers for confirmation
+            confirmationList.innerHTML = '';
+            for (const question of questions) {
+                if (answers.hasOwnProperty(question)) {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${question}: ${answers[question]}`;
+                    confirmationList.appendChild(listItem);
+                }
+            }
+
+            // Show the confirmation container
+            questionContainer.style.display = 'none';
+            confirmationContainer.style.display = 'block';
+        });
+
+        confirmButton.addEventListener('click', () => {
+            // Send the confirmation data to the backend API
+            fetch('/index/submit_answers/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(answers)
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('Confirmation data sent successfully:', data);
+                  // End the meeting
+                  endCall();
+              })
+              .catch(error => {
+                  console.error('Error sending confirmation data:', error);
+              });
+        });
+
+        editButton.addEventListener('click', () => {
+            // Hide the confirmation container and show the question container
+            confirmationContainer.style.display = 'none';
+            questionContainer.style.display = 'block';
+            currentQuestionIndex = 0;
+            showQuestion();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            console.log("User switched windows or minimized the tab. Ending the call.");
+            endCall();
+            }
+        });
+
+        function initSpeechRecognition() {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true; // Enable interim results
+            recognition.continuous = false; // Disable continuous recognition
+
+            recognition.onresult = (event) => {
+                let interimTranscript = ''; // Store interim results
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        // Append final results to the finalTranscript
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    } else {
+                        // Capture interim results separately
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                // Update the answerText with the combination of final and interim results
+                answerText.value = finalTranscript + interimTranscript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+            };
+
+            recognition.onend = () => {
+                console.log('Speech recognition ended');
+                // Restart recognition if it ends unexpectedly
+                recognition.start();
+            };
+        }
+        function startCameraRecording() {
+            cameraRecorder = new MediaRecorder(cameraStream);
+            cameraRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedCameraChunks.push(event.data);
+                }
+            };
+            cameraRecorder.onstop = () => {
+                saveCameraVideo();
+            };
+            cameraRecorder.start();
+        }
+
+        function startScreenRecording() {
+            screenRecorder = new MediaRecorder(screenStream);
+            screenRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedScreenChunks.push(event.data);
+                }
+            };
+            screenRecorder.onstop = () => {
+                saveScreenVideo();
+            };
+            screenRecorder.start();
+        }
+
+        function saveCameraVideo() {
+            const blob = new Blob(recordedCameraChunks, { type: 'video/webm' });
+            const formData = new FormData();
+            formData.append('camera_video', blob, 'camera_interview.mp4');
+
+            fetch('/index/upload/', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('Camera video uploaded successfully:', data);
+              })
+              .catch(error => {
+                  console.error('Error uploading camera video:', error);
+              });
+        }
+
+        function saveScreenVideo() {
+            const blob = new Blob(recordedScreenChunks, { type: 'video/webm' });
+            const formData = new FormData();
+            formData.append('screen_video', blob, 'screen_interview.mp4');
+
+            fetch('/index/upload/', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+              .then(data => {
+                  console.log('Screen video uploaded successfully:', data);
+              })
+              .catch(error => {
+                  console.error('Error uploading screen video:', error);
+              });
+        }
+
+        function endCall() {
+            // Close the peer connection
+            if (peerConnection) {
+                peerConnection.close();
+            }
+
+            // Stop all tracks from the screen stream if it exists
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Stop all tracks from the camera stream if it exists
+            if (cameraStream) {
+                // Stop both video and audio tracks to ensure the microphone is off
+                cameraStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+            }
+
+            // Stop the camera and screen recorders if they are still active
+            if (cameraRecorder && cameraRecorder.state !== 'inactive') {
+                cameraRecorder.stop();
+            }
+            if (screenRecorder && screenRecorder.state !== 'inactive') {
+                screenRecorder.stop();
+            }
+
+            // Stop face detection and hide any notifications
+            stopFaceDetection();
+            hideNotification();
+
+            // Display a confirmation message
+            alert('Interview completed!');
+        }
+
+        function showNotification(message) {
+            const notificationPopup = document.getElementById('notificationPopup');
+            const notificationMessage = document.getElementById('notificationMessage');
+            const closeNotification = document.getElementById('closeNotification');
+
+            notificationMessage.innerText = message;
+            notificationPopup.style.display = 'block';
+
+            closeNotification.addEventListener('click', () => {
+                notificationPopup.style.display = 'none';
+            });
+        }
+
+        function hideNotification() {
+            const notificationPopup = document.getElementById('notificationPopup');
+            notificationPopup.style.display = 'none';
+        }
+
+        function startFaceDetection() {
+            const video = document.getElementById('localVideo');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function captureFrame() {
+                // Only run if the video is playing and has a valid stream
+                if (!cameraStream || !cameraStream.getVideoTracks().length || !cameraStream.getVideoTracks()[0].enabled || video.videoWidth === 0 || video.videoHeight === 0) {
+                    return;
+                }
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob((blob) => {
+                    const formData = new FormData();
+                    formData.append('image', blob, 'frame.png');
+
+                    fetch('/index/check_face/', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'error') {
+                            showNotification(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking face:', error);
+                    });
+                }, 'image/png');
+            }
+
+            function startDetection() {
+                if (cameraStream && cameraStream.getVideoTracks().length > 0 && cameraStream.getVideoTracks()[0].enabled) {
+                    faceDetectionIntervalId = setInterval(captureFrame, 5000); // Capture frame every 5 seconds
+                }
+            }
+
+            function stopDetection() {
+                clearInterval(faceDetectionIntervalId);
+            }
+
+            video.addEventListener('play', startDetection);
+            video.addEventListener('pause', stopDetection);
+            video.addEventListener('ended', stopDetection);
+
+            // Add event listeners to handle when the camera stream is stopped or disabled
+            cameraStream.getVideoTracks()[0].addEventListener('ended', stopDetection);
+            cameraStream.getVideoTracks()[0].addEventListener('mute', stopDetection);
+            cameraStream.getVideoTracks()[0].addEventListener('unmute', startDetection);
+        }
+
+        function stopFaceDetection() {
+            clearInterval(faceDetectionIntervalId);
+        }
+
+        // Initialize PeerConnection
+        createPeerConnection();
+        // startFaceDetection(); // Start face detection
+    </script>
+</body>
+</html>
